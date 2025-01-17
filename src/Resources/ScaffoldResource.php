@@ -7,6 +7,7 @@ use Filament\Forms\Form;
 use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
@@ -19,6 +20,23 @@ if (! defined('STDIN')) {
 
 class ScaffoldResource extends Resource
 {
+    private const OPT_CREATE_CONTROLLER = 'Create Controller';
+    private const OPT_CREATE_FACTORY = 'Create Factory';
+    private const OPT_CREATE_MIGRATION = 'Create Migration';
+    private const OPT_CREATE_MODEL = 'Create Model';
+    private const OPT_CREATE_POLICY = 'Create Policy';
+    private const OPT_CREATE_RESOURCE = 'Create Resource';
+    private const OPT_CREATE_ROUTE = 'Create Route';
+    private const OPT_RUN_MIGRATE = 'Run Migrate';
+    private const OPT_SIMPLE_RESOURCE = 'Simple Resource';
+
+    private const PERMITTED_COLUMN_TYPES = [
+        'string', 'integer', 'bigInteger', 'text', 'float', 'double', 'decimal',
+        'boolean', 'date', 'time', 'datetime', 'timestamp', 'char', 'mediumText',
+        'longText', 'tinyInteger', 'smallInteger', 'mediumInteger', 'json', 'jsonb',
+        'binary', 'enum', 'ipAddress', 'macAddress',
+    ];
+
     protected static ?string $navigationIcon = 'heroicon-o-cube-transparent';
 
     /********************************************
@@ -102,19 +120,19 @@ class ScaffoldResource extends Resource
                  */
                 Forms\Components\Section::make('Generation Options')
                     ->schema([
-                        Forms\Components\Checkbox::make('Create Resource')
+                        Forms\Components\Checkbox::make(self::OPT_CREATE_RESOURCE)
                             ->default(true),
-                        Forms\Components\Checkbox::make('Create Model')
+                        Forms\Components\Checkbox::make(self::OPT_CREATE_MODEL)
                             ->default(true),
-                        Forms\Components\Checkbox::make('Simple Resource')
+                        Forms\Components\Checkbox::make(self::OPT_SIMPLE_RESOURCE)
                             ->default(false)
                             ->label('Simple (Modal Type) Resource'),
-                        Forms\Components\Checkbox::make('Create Migration'),
-                        Forms\Components\Checkbox::make('Create Factory'),
-                        Forms\Components\Checkbox::make('Create Controller'),
-                        Forms\Components\Checkbox::make('Run Migrate'),
-                        Forms\Components\Checkbox::make('Create Route'),
-                        Forms\Components\Checkbox::make('Create Policy')
+                        Forms\Components\Checkbox::make(self::OPT_CREATE_MIGRATION),
+                        Forms\Components\Checkbox::make(self::OPT_CREATE_FACTORY),
+                        Forms\Components\Checkbox::make(self::OPT_CREATE_CONTROLLER),
+                        Forms\Components\Checkbox::make(self::OPT_RUN_MIGRATE),
+                        Forms\Components\Checkbox::make(self::OPT_CREATE_ROUTE),
+                        Forms\Components\Checkbox::make(self::OPT_CREATE_POLICY)
                             ->default(false)
                             ->hidden(fn () => ! class_exists(\BezhanSalleh\FilamentShield\FilamentShield::class)),
                     ])
@@ -136,32 +154,7 @@ class ScaffoldResource extends Resource
                                 Forms\Components\Select::make('type')
                                     ->native(false)
                                     ->searchable()
-                                    ->options([
-                                        'string' => 'string',
-                                        'integer' => 'integer',
-                                        'bigInteger' => 'bigInteger',
-                                        'text' => 'text',
-                                        'float' => 'float',
-                                        'double' => 'double',
-                                        'decimal' => 'decimal',
-                                        'boolean' => 'boolean',
-                                        'date' => 'date',
-                                        'time' => 'time',
-                                        'datetime' => 'dateTime',
-                                        'timestamp' => 'timestamp',
-                                        'char' => 'char',
-                                        'mediumText' => 'mediumText',
-                                        'longText' => 'longText',
-                                        'tinyInteger' => 'tinyInteger',
-                                        'smallInteger' => 'smallInteger',
-                                        'mediumInteger' => 'mediumInteger',
-                                        'json' => 'json',
-                                        'jsonb' => 'jsonb',
-                                        'binary' => 'binary',
-                                        'enum' => 'enum',
-                                        'ipAddress' => 'ipAddress',
-                                        'macAddress' => 'macAddress',
-                                    ])
+                                    ->options(Arr::mapWithKeys(self::PERMITTED_COLUMN_TYPES, fn (string $item, string $key) => [$item => $item]))
                                     ->default(fn ($record) => $record['type'] ?? 'string')
                                     ->reactive(),
                                 Forms\Components\Checkbox::make('nullable')
@@ -213,7 +206,7 @@ class ScaffoldResource extends Resource
         return array_map('current', $tables);
     }
 
-    public static function getTableColumns($tableName)
+    public static function getTableColumns($tableName): array
     {
         $columns = DB::select('SHOW COLUMNS FROM ' . $tableName);
         $columnDetails = [];
@@ -284,16 +277,15 @@ class ScaffoldResource extends Resource
         ];
     }
 
-    public static function getFileName($path)
+    public static function getFileName($path): string
     {
         $normalizedPath = str_replace('\\', '/', $path);
         $fileNameWithExtension = basename($normalizedPath);
-        $fileName = pathinfo($fileNameWithExtension, PATHINFO_FILENAME);
 
-        return $fileName;
+        return pathinfo($fileNameWithExtension, PATHINFO_FILENAME);
     }
 
-    public static function generateFiles(array $data)
+    public static function generateFiles(array $data): void
     {
         $basePath = base_path();
 
@@ -303,7 +295,6 @@ class ScaffoldResource extends Resource
 
         chdir($basePath);
         $migrationPath = null;
-        $resourcePath = null;
         $modelPath = null;
         $controllerPath = null;
 
@@ -375,7 +366,7 @@ class ScaffoldResource extends Resource
         /********************************************
          * CREATE CONTROLLER
          */
-        if ($data['Create Controller']) {
+        if ($data[self::OPT_CREATE_CONTROLLER]) {
             Artisan::call('make:controller', [
                 'name' => $data['Table Name'] . 'Controller',
                 '--model' => $modelName,
@@ -520,7 +511,7 @@ class ScaffoldResource extends Resource
 
     }
 
-    public static function overwriteResourceFile($resourceFile, $data)
+    public static function overwriteResourceFile($resourceFile, $data): void
     {
         $modelName = self::getFileName($data['Model']);
 
